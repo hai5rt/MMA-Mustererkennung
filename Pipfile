@@ -16,9 +16,9 @@ scipy = "1.14.1"
 scikit-learn = "1.5.2"
 seaborn = "0.13.2"
 moviepy = "1.0.0"
-torch = {index = "pytorch"}
+torch = "*"
 torchinfo = "1.8.0"
-torchvision = "0.20.1"
+torchvision = "*"
 bokeh = "3.6.3"
 pandas = "2.2.3"
 albumentations = "2.0.4"
@@ -33,4 +33,4 @@ jupyter = "1.1.1"
 [dev-packages]
 
 [requires]
-python_version = "3.12"
+python_version = "3.13"
