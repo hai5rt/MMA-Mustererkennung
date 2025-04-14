@@ -29,6 +29,7 @@ segment-anything = "1.0"
 diffusers = "0.32.2"
 torch-utils = "0.1.2"
 jupyter = "1.1.1"
+nbconvert = {extras = ["webpdf"], version = "*"}
 
 [dev-packages]
 
