@@ -15,7 +15,7 @@ opencv-python = "4.10.0.84"
 scipy = "1.14.1"
 scikit-learn = "1.5.2"
 seaborn = "0.13.2"
-moviepy = "1.0.0"
+moviepy = "1.0.3"
 torch = "*"
 torchinfo = "1.8.0"
 torchvision = "*"
@@ -32,6 +32,7 @@ jupyter = "1.1.1"
 nbconvert = {extras = ["webpdf"], version = "*"}
 
 [dev-packages]
+ipykernel = "*"
 
 [requires]
-python_version = "3.13"
+python_version = "3.*"
