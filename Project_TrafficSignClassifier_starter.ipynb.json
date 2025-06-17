@@ -1,0 +1,1481 @@
+{
+ "cells": [
+  {
+   "cell_type": "markdown",
+   "metadata": {
+    "id": "XGlkJs3kGTB7"
+   },
+   "source": [
+    "# Traffic Sign Recognition with Convolutional Neural Networks\n",
+    "\n",
+    "---\n",
+    "\n",
+    "Prof. Dr.-Ing. Antje Muntzinger, Hochschule für Technik Stuttgart\n",
+    "\n",
+    "antje.muntzinger@hft-stuttgart.de\n",
+    "\n",
+    "---\n",
+    "\n",
+    "### Domain Background\n",
+    "Autonomous driving is one of the main research areas of artificial intelligence and machine learning.\n",
+    "Traffic sign recognition has been available in advanced driver assistance systems since 2008\n",
+    "(https://en.wikipedia.org/wiki/Traffic-sign_recognition). Although research has been done for\n",
+    "many years in this domain, there are still unsolved problems, such as computer vision in bad\n",
+    "weather conditions, at nighttime, or additional traffic signs that are difficult to classify.\n",
+    "\n",
+    "### Problem Statement\n",
+    "In this notebook we will implement a traffic sign detector. The detector should get images\n",
+    "of traffic signs of different classes as input and return the most likely class as output."
+   ]
+  },
+  {
+   "cell_type": "markdown",
+   "metadata": {
+    "id": "0nvxj82VsLcz"
+   },
+   "source": [
+    "---\n",
+    "## 0. Working with GPUs in Google Colab\n",
+    "\n",
+    "You can run this notebook locally on your computer, but for free GPU access, you can use Google Colab to accelerate training. Here is a quick summary on how to work with Google Colab:\n",
+    "- You will need a Gmail-Account.\n",
+    "- Go to drive.google.com and create a new folder for your code, e.g. called \"Colab_Notebooks\", and inside a subfolder \"Traffic_Sign_Classifier\".\n",
+    "- Upload this jupyter notebook in the new folder and open it via double-click.\n",
+    "- In the menu, select **Runtime** -> **Change runtime type** and select **T4 GPU** as Hardware accelerator.\n",
+    "- Select **Runtime** -> **Run all cells** and accept all requested access rights.\n",
+    "\n",
+    "Unfortunately, GPU usage in Colab is restricted and you may not always have access to a GPU. Alternatively, use the GPUs in PC pool 2/401.\n",
+    "\n",
+    "**Note that some of the cells in this notebook may take hours to complete, so start early with this assignment! Intensive training may have to run overnight. Don't start working on the assignment last minute, you will not be able to complete it.**"
+   ]
+  },
+  {
+   "cell_type": "markdown",
+   "metadata": {
+    "id": "ghyEvDREsLc2"
+   },
+   "source": [
+    "---\n",
+    "## 1. PyTorch Basics\n",
+    "\n",
+    "\n",
+    "Answer the following questions regarding the [\"Introduction to PyTorch\" tutorial](https://pytorch.org/tutorials/beginner/basics/intro.html). \n"
+   ]
+  },
+  {
+   "cell_type": "markdown",
+   "metadata": {
+    "id": "3Iqjp9jOsLc4"
+   },
+   "source": [
+    "**TODO:** 1a) Why does PyTorch have a dedicated tensor data structure (`torch.tensor`) and does not use NumPy multidimensional arrays exclusively?  **(2 points)**\n",
+    "\n",
+    "**ANSWER:**\n"
+   ]
+  },
+  {
+   "cell_type": "markdown",
+   "metadata": {
+    "id": "ubUzHS1ksLc5"
+   },
+   "source": [
+    "**TODO:** 1b) In the [\"Build Model\"](https://pytorch.org/tutorials/beginner/basics/buildmodel_tutorial.html) section of the tutorial, there is a definition of a neural network, as follows:\n",
+    "\n",
+    "\n",
+    "```\n",
+    "class NeuralNetwork(nn.Module):\n",
+    "    def __init__(self):\n",
+    "        super().__init__()\n",
+    "        self.flatten = nn.Flatten()\n",
+    "        self.linear_relu_stack = nn.Sequential(\n",
+    "            nn.Linear(28*28, 512),\n",
+    "            nn.ReLU(),\n",
+    "            nn.Linear(512, 512),\n",
+    "            nn.ReLU(),\n",
+    "            nn.Linear(512, 10),\n",
+    "        )\n",
+    "\n",
+    "    def forward(self, x):\n",
+    "        x = self.flatten(x)\n",
+    "        logits = self.linear_relu_stack(x)\n",
+    "        return logits\n",
+    "```\n",
+    "\n",
+    "Explain the different parameters of the `nn.Linear()` layers. How are the numeric values, `28*28`, `512` and `10`, determined?  **3 points)**\n",
+    "\n",
+    "**ANSWER:**\n"
+   ]
+  },
+  {
+   "cell_type": "markdown",
+   "metadata": {
+    "id": "hMGK6W1usLc6"
+   },
+   "source": [
+    "**TODO:** 1c) In the [\"Build Model\"](https://pytorch.org/tutorials/beginner/basics/buildmodel_tutorial.html) section of the tutorial, it is stated that `nn.Softmax()` is applied on the logits. Can you explain why this is needed? Is the softmax function applied on the output of every neural network, or only in special cases, and if so, in which cases? **(2 points)**\n",
+    "\n",
+    "**ANSWER:** "
+   ]
+  },
+  {
+   "cell_type": "markdown",
+   "metadata": {
+    "id": "ASMFXIGYsLc6"
+   },
+   "source": [
+    "**TODO**: 1d) In the [\"Optimization\"](https://pytorch.org/tutorials/beginner/basics/optimization_tutorial.html) section of the tutorial, explain why `requires_grad=True` is set for `w` and `b`, but not for `x` and `y`. In which cases should we set `torch.no_grad()`? **(2 points)**\n",
+    "\n",
+    "**ANSWER:** \n"
+   ]
+  },
+  {
+   "cell_type": "markdown",
+   "metadata": {
+    "id": "V_Y03QGrsLc6"
+   },
+   "source": [
+    "**TODO:** 1e) In the [\"Optimization\"](https://pytorch.org/tutorials/beginner/basics/optimization_tutorial.html) section of the tutorial, an example of a training loop is given:\n",
+    "\n",
+    " ```\n",
+    "def train_loop(dataloader, model, loss_fn, optimizer):\n",
+    "    size = len(dataloader.dataset)\n",
+    "    for batch, (X, y) in enumerate(dataloader):\n",
+    "        # Compute prediction and loss\n",
+    "        pred = model(X)\n",
+    "        loss = loss_fn(pred, y)\n",
+    "\n",
+    "        # Backpropagation\n",
+    "        optimizer.zero_grad()\n",
+    "        loss.backward()\n",
+    "        optimizer.step()\n",
+    "\n",
+    "        if batch % 100 == 0:\n",
+    "            loss, current = loss.item(), (batch + 1) * len(X)\n",
+    "            print(f\"loss: {loss:>7f}  [{current:>5d}/{size:>5d}]\")\n",
+    " ```\n",
+    "\n",
+    " Explain the effect of the function calls `optimizer.zero_grad()` and `optimizer.step()`.\n",
+    " **(2 points)**\n",
+    "\n",
+    " **Note:** It is a very common bug to forget `optimizer.zero_grad()`, so keep in mind why it is needed, this might save you a lot of time debugging!\n",
+    "\n",
+    "\n",
+    "**ANSWER:** "
+   ]
+  },
+  {
+   "cell_type": "markdown",
+   "metadata": {
+    "id": "7Za7fcP_GdjZ"
+   },
+   "source": [
+    "---\n",
+    "## 2. Data Exploration\n",
+    "\n",
+    "### Datasets and Inputs\n",
+    "In order to classify traffic signs, we will use the German Traffic Sign Recognition Benchmark (GTSRB). The training and testing sets are available as PyTorch datasets.\n",
+    "\n",
+    "The German Traffic Sign Recognition Benchmark is a multi-class, single-image classification challenge. It contains images from 43 classes in total and is a large, lifelike database. The images are taken in different angles and lighting conditions. Therefore, the use of this dataset is appropriate given the context of the problem."
+   ]
+  },
+  {
+   "cell_type": "markdown",
+   "metadata": {
+    "id": "jzKO3GbSG0cB"
+   },
+   "source": [
+    "### Data Exploration and Pre-Processing\n",
+    "\n",
+    "First, we will load the data and explore the given images. We will write some basic\n",
+    "code to see how the images look like, how the data is organized and decide which modifications\n",
+    "have to be done. We will also perform a split into training, validation and testing data. Further, the image data should be normalized so that the data has mean zero and equal variance. We will use data augmentation techniques as well.\n"
+   ]
+  },
+  {
+   "cell_type": "code",
+   "execution_count": null,
+   "metadata": {
+    "executionInfo": {
+     "elapsed": 245,
+     "status": "ok",
+     "timestamp": 1715752638326,
+     "user": {
+      "displayName": "Antje Muntzinger",
+      "userId": "10437300600274960629"
+     },
+     "user_tz": -120
+    },
+    "id": "iVJg6yjPdV11"
+   },
+   "outputs": [],
+   "source": [
+    "# Path where trained models shall be stored (this needs to be adapted)\n",
+    "modelPath = \"./models/\" # local\n",
+    "colab = False\n",
+    "if 'google.colab' in str(get_ipython()):\n",
+    "    colab = True\n",
+    "    modelPath = '/content/drive/My Drive/Colab_Notebooks/Traffic_Sign_Classifier/'   # Colab\n",
+    "else:\n",
+    "    import os\n",
+    "    os.makedirs(modelPath, exist_ok=True) # create folder if not existent"
+   ]
+  },
+  {
+   "cell_type": "code",
+   "execution_count": null,
+   "metadata": {
+    "colab": {
+     "base_uri": "https://localhost:8080/"
+    },
+    "executionInfo": {
+     "elapsed": 2192,
+     "status": "ok",
+     "timestamp": 1715752640755,
+     "user": {
+      "displayName": "Antje Muntzinger",
+      "userId": "10437300600274960629"
+     },
+     "user_tz": -120
+    },
+    "id": "ZJ6-bxYByXqy",
+    "outputId": "dd5ddb36-6733-4cc1-91ec-a931275d4b02"
+   },
+   "outputs": [],
+   "source": [
+    "# Colab settings\n",
+    "if colab:\n",
+    "    from google.colab import drive\n",
+    "    drive.mount('/content/drive/')\n",
+    "    !cd \"$modelPath\""
+   ]
+  },
+  {
+   "cell_type": "code",
+   "execution_count": null,
+   "metadata": {
+    "colab": {
+     "base_uri": "https://localhost:8080/"
+    },
+    "executionInfo": {
+     "elapsed": 6154,
+     "status": "ok",
+     "timestamp": 1715752646905,
+     "user": {
+      "displayName": "Antje Muntzinger",
+      "userId": "10437300600274960629"
+     },
+     "user_tz": -120
+    },
+    "id": "8ytQ2hQ2zbN5",
+    "outputId": "34dd1aaa-26d4-450f-eac0-20fcf101b48c"
+   },
+   "outputs": [],
+   "source": [
+    "# imports:\n",
+    "\n",
+    "# NumPy\n",
+    "import numpy as np\n",
+    "\n",
+    "# Matplotlib\n",
+    "import matplotlib.pyplot as plt\n",
+    "%matplotlib inline\n",
+    "\n",
+    "# PyTorch\n",
+    "import torch\n",
+    "from torch import nn, optim\n",
+    "import torch.nn.functional as F\n",
+    "import torchvision\n",
+    "import torchvision.transforms as transforms\n",
+    "\n",
+    "if colab:\n",
+    "    !pip install torchinfo\n",
+    "from torchinfo import summary\n"
+   ]
+  },
+  {
+   "cell_type": "code",
+   "execution_count": null,
+   "metadata": {
+    "executionInfo": {
+     "elapsed": 6,
+     "status": "ok",
+     "timestamp": 1715752646907,
+     "user": {
+      "displayName": "Antje Muntzinger",
+      "userId": "10437300600274960629"
+     },
+     "user_tz": -120
+    },
+    "id": "0zrU5DzJPh6r"
+   },
+   "outputs": [],
+   "source": [
+    "# calc mean and standard deviation for normalization\n",
+    "def calc_stats(data):\n",
+    "\n",
+    "    dataloader = torch.utils.data.DataLoader(data, batch_size=1)\n",
+    "    total_mean =[0, 0, 0]\n",
+    "    total_std =[0, 0, 0]\n",
+    "    for image, label in dataloader:\n",
+    "        np_image = image.numpy()\n",
+    "        # print(np_image.shape) # shape is (batch_size, 3, height, width) - height and width vary, so we have to resize below\n",
+    "        mean = np.mean(np_image, axis=(0,2,3)) # normalize each color channel separately\n",
+    "        # alternative\n",
+    "        # mean_red = np.mean(np_image[:,0,:,:])\n",
+    "        # mean_green = np.mean(np_image[:,1,:,:])\n",
+    "        # mean_blue = np.mean(np_image[:,2,:,:])\n",
+    "        total_mean += mean\n",
+    "        std = np.std(np_image, axis=(0,2,3))\n",
+    "        total_std += std\n",
+    "\n",
+    "    total_mean /= len(dataloader)\n",
+    "    total_std /= len(dataloader)\n",
+    "    return total_mean, total_std"
+   ]
+  },
+  {
+   "cell_type": "code",
+   "execution_count": null,
+   "metadata": {
+    "colab": {
+     "base_uri": "https://localhost:8080/"
+    },
+    "executionInfo": {
+     "elapsed": 39663,
+     "status": "ok",
+     "timestamp": 1715752686564,
+     "user": {
+      "displayName": "Antje Muntzinger",
+      "userId": "10437300600274960629"
+     },
+     "user_tz": -120
+    },
+    "id": "Cqz8lKmJP3nw",
+    "outputId": "ca209747-7132-490c-9ead-ba60c2eddb28"
+   },
+   "outputs": [],
+   "source": [
+    "# load data\n",
+    "train = torchvision.datasets.GTSRB(root='./data', split='train', download=True, transform=transforms.ToTensor())\n",
+    "mean_train, std_train = calc_stats(train)\n",
+    "print(\"Image mean for training data is \", mean_train)\n",
+    "print(\"Image standard deviation for training data is \", std_train)\n",
+    "\n",
+    "test = torchvision.datasets.GTSRB(root='./data', split='test', download=True, transform=transforms.ToTensor())"
+   ]
+  },
+  {
+   "cell_type": "markdown",
+   "metadata": {
+    "id": "vWeCVBtZsLdB",
+    "vscode": {
+     "languageId": "bat"
+    }
+   },
+   "source": [
+    "**TODO**: 2) Define the following transforms and store them in variables called `train_transform` and `test_transform`, respectively:\n",
+    "- resize the images to `imHeight` times `imWidth`\n",
+    "- randomly rotate around 30 degrees (only training data should be augmented)\n",
+    "- convert the images to tensor format and\n",
+    "- normalize mean and standard deviation (we have calculated the values above - note that we also normalize the test data using the *train* statistics to avoid data leakage).\n",
+    "\n",
+    "The transforms will be applied afterwards (this code is provided).\n",
+    "Check out the documentation here: https://pytorch.org/vision/stable/transforms.html\n",
+    "**(4 points)**"
+   ]
+  },
+  {
+   "cell_type": "code",
+   "execution_count": null,
+   "metadata": {
+    "colab": {
+     "base_uri": "https://localhost:8080/"
+    },
+    "executionInfo": {
+     "elapsed": 11,
+     "status": "ok",
+     "timestamp": 1715752686565,
+     "user": {
+      "displayName": "Antje Muntzinger",
+      "userId": "10437300600274960629"
+     },
+     "user_tz": -120
+    },
+    "id": "wR6rfq83zGo8",
+    "outputId": "54c45eb0-97ed-496a-f205-0f746f5a7a80"
+   },
+   "outputs": [],
+   "source": [
+    "# different parameters\n",
+    "batchSize = 12 # numer of images loaded and processed at once. Larger batch sizes enable faster training, but can lead to overfitting and lower accuracy.\n",
+    "imWidth = 64 # resize to images of this width\n",
+    "imHeight = 64 # resize to images of this width\n",
+    "load_model_from_file = False # load checkpoint instead of training - skip the training loop if True\n",
+    "\n",
+    "###### TODO: YOUR CODE GOES HERE #####\n",
+    "\n",
+    "\n",
+    "\n",
+    "\n",
+    "\n",
+    "\n",
+    "##### END STUDENT CODE\n",
+    "\n",
+    "# get training data\n",
+    "trainSet = torchvision.datasets.GTSRB(root='./data', split='train',\n",
+    "                                      download=True, transform=train_transform)\n",
+    "trainLoader = torch.utils.data.DataLoader(trainSet, batch_size=batchSize, shuffle=True)\n",
+    "numTrainSamples = len(trainSet)\n",
+    "print('number of training samples:', numTrainSamples)\n",
+    "\n",
+    "# get validation and test data\n",
+    "gtsrbTestSet = torchvision.datasets.GTSRB(root='./data', split='test',\n",
+    "                                          download=True, transform=test_transform)\n",
+    "\n",
+    "# split the original GTSRB test data into 75% validation data and 25% test data\n",
+    "length75Percent = int(0.75 * len(gtsrbTestSet))\n",
+    "length25Percent = len(gtsrbTestSet) - length75Percent\n",
+    "lengths = [length75Percent, length25Percent]\n",
+    "valSet, testSet = torch.utils.data.random_split(gtsrbTestSet, lengths)\n",
+    "\n",
+    "# validation data\n",
+    "validLoader = torch.utils.data.DataLoader(valSet, batch_size=batchSize, shuffle=True)\n",
+    "numValSamples = len(valSet)\n",
+    "print('number of validation samples:', numValSamples)\n",
+    "\n",
+    "# test data\n",
+    "testLoader = torch.utils.data.DataLoader(testSet, batch_size=1, shuffle=True)\n",
+    "numTestSamples = len(testSet)\n",
+    "print('number of test samples:', numTestSamples)\n",
+    "\n",
+    "# Available traffic sign classes in the dataset\n",
+    "classes = [\n",
+    "    \"Speed limit (20km/h)\",\n",
+    "    \"Speed limit (30km/h)\",\n",
+    "    \"Speed limit (50km/h)\",\n",
+    "    \"Speed limit (60km/h)\",\n",
+    "    \"Speed limit (70km/h)\",\n",
+    "    \"Speed limit (80km/h)\",\n",
+    "    \"End of speed limit (80km/h)\",\n",
+    "    \"Speed limit (100km/h)\",\n",
+    "    \"Speed limit (120km/h)\",\n",
+    "    \"No passing\",\n",
+    "    \"No passing for vehicles over 3.5 metric tons\",\n",
+    "    \"Right-of-way at the next intersection\",\n",
+    "    \"Priority road\",\n",
+    "    \"Yield\",\n",
+    "    \"Stop\",\n",
+    "    \"No vehicles\",\n",
+    "    \"Vehicles over 3.5 metric tons prohibited\",\n",
+    "    \"No entry\",\n",
+    "    \"General caution\",\n",
+    "    \"Dangerous curve to the left\",\n",
+    "    \"Dangerous curve to the right\",\n",
+    "    \"Double curve\",\n",
+    "    \"Bumpy road\",\n",
+    "    \"Slippery road\",\n",
+    "    \"Road narrows on the right\",\n",
+    "    \"Road work\",\n",
+    "    \"Traffic signals\",\n",
+    "    \"Pedestrians\",\n",
+    "    \"Children crossing\",\n",
+    "    \"Bicycles crossing\",\n",
+    "    \"Beware of ice/snow\",\n",
+    "    \"Wild animals crossing\",\n",
+    "    \"End of all speed and passing limits\",\n",
+    "    \"Turn right ahead\",\n",
+    "    \"Turn left ahead\",\n",
+    "    \"Ahead only\",\n",
+    "    \"Go straight or right\",\n",
+    "    \"Go straight or left\",\n",
+    "    \"Keep right\",\n",
+    "    \"Keep left\",\n",
+    "    \"Roundabout mandatory\",\n",
+    "    \"End of no passing\",\n",
+    "    \"End of no passing by vehicles over 3.5 metric tons\",\n",
+    "]\n",
+    "\n",
+    "numClasses = len(classes)"
+   ]
+  },
+  {
+   "cell_type": "markdown",
+   "metadata": {
+    "id": "Nco5Aq8PHF5K"
+   },
+   "source": [
+    "### Visualization of the dataset"
+   ]
+  },
+  {
+   "cell_type": "code",
+   "execution_count": null,
+   "metadata": {
+    "colab": {
+     "base_uri": "https://localhost:8080/",
+     "height": 406
+    },
+    "executionInfo": {
+     "elapsed": 956,
+     "status": "ok",
+     "timestamp": 1715752687514,
+     "user": {
+      "displayName": "Antje Muntzinger",
+      "userId": "10437300600274960629"
+     },
+     "user_tz": -120
+    },
+    "id": "pcfjLTemHHhH",
+    "outputId": "894b025e-fea8-47de-f1be-9932e66a3fbd"
+   },
+   "outputs": [],
+   "source": [
+    "# function to plot an image from dataloader\n",
+    "def show_image(img):\n",
+    "    img = img.numpy()\n",
+    "\n",
+    "    # PyTorch tensors assume the color channel is the first dimension\n",
+    "    # but matplotlib assumes is the third dimension\n",
+    "    img = np.transpose(img, (1, 2, 0))\n",
+    "\n",
+    "    # image needs to be clipped between 0 and 1\n",
+    "    img = np.clip(img, 0, 1)\n",
+    "\n",
+    "    plt.imshow(img)\n",
+    "    plt.axis(\"off\")\n",
+    "    plt.show()\n",
+    "\n",
+    "\n",
+    "numRows = 4\n",
+    "\n",
+    "# get a single random batch of training images\n",
+    "dataIter = iter(trainLoader)\n",
+    "images, labels = next(dataIter)\n",
+    "\n",
+    "# show images\n",
+    "show_image(torchvision.utils.make_grid(images, nrow=numRows))"
+   ]
+  },
+  {
+   "cell_type": "markdown",
+   "metadata": {
+    "id": "Vep_K_L9HIdE"
+   },
+   "source": [
+    "----\n",
+    "\n",
+    "## 3. Implementation of a Fully Connected Neural Network (FCN)\n",
+    "\n",
+    "\n",
+    "Our first neural network is an FCN to solve the image classification. The FCN should get an image as input and give the probabilities of the classes as output.\n",
+    "\n",
+    "**Note:** The abbreviation FCN is often also used for a \"fully convolutional neural network\" - don't get confused, here we use it for \"fully connected neural network\".\n"
+   ]
+  },
+  {
+   "cell_type": "markdown",
+   "metadata": {},
+   "source": [
+    "### LogSoftmax Instead of Softmax\n",
+    "In the following code, we use `LogSoftmax` and `NLLLoss` instead of `Softmax` and `CrossEntropyLoss`. Why?\n",
+    "```python\n",
+    "self.logsoftmax = nn.LogSoftmax(dim=1)\n",
+    "self.criterion = nn.NLLLoss()\n",
+    "```\n",
+    "\n",
+    "Mathematically, they are equivalent, but numerically more stable. Remember:\n",
+    "1. Softmax converts numbers into probabilities: $$\\hat y_i=\\text{softmax}(x_i) = \\frac{e^{x_i}}{\\sum_j e^{x_j}}$$  \n",
+    "2. Then we need the logarithm for the cross-entropy: $$-\\sum_i y_i \\log(\\hat y_i)$$\n",
+    "\n",
+    "The problem: When the exponential function produces very large numbers, rounding errors can occur. Better:\n",
+    "1. First, take the logarithm: $$\\log(\\text{softmax}(x_i)) = x_i - \\log(\\sum_j e^{x_j})$$  \n",
+    "2. Then directly compute the loss. `NLLLoss` expects log probabilities as input, so this loss fits perfectly with `LogSoftmax`.\n",
+    "\n",
+    "This is called the **\"Log-Sum-Exp Trick\"** – an important trick for numerical stability!\n",
+    "\n",
+    "Because of the logarithm, the net output is not the final class probabilities - to get these, we calculate the exponential of the output, which you will see several times below (this code is provided). Further details: https://pytorch.org/docs/stable/generated/torch.nn.NLLLoss.html."
+   ]
+  },
+  {
+   "cell_type": "markdown",
+   "metadata": {
+    "id": "jmQ3fV6wPvJ-"
+   },
+   "source": [
+    "### Model Architecture\n",
+    "\n",
+    "**TODO**: 3a) Design a fully connected model architecture as seen in the tutorial https://pytorch.org/tutorials/beginner/basics/buildmodel_tutorial.html, i.e., define a subclass of `nn.Module` and name it `FCN`. Then define the `__init__()` and `forward()` functions. The network should have the following shape:\n",
+    "- a linear layer `torch.nn.Linear` with input size `imWidth*imHeight*3` and output size 512, followed by a ReLU activation `torch.nn.functional.relu`,\n",
+    "- another linear layer `torch.nn.Linear` with input size 512 and output size `numClasses`, followed by a LogSoftmax function `torch.nn.LogSoftmax` (without ReLU activation).\n",
+    "\n",
+    "You should also define an optimizer with a learning rate (e.g. Adam optimizer with learning rate 0.0001) and a loss function, the negative log likelihood loss `torch.nn.functional.NLLLoss`. Define member variables called `optimizer` and `criterion` for these. \n",
+    "\n",
+    "The `forward()` function should do a forward pass of an image through the network (note that the image has to be flattened first).\n",
+    "**(8 points)**"
+   ]
+  },
+  {
+   "cell_type": "code",
+   "execution_count": null,
+   "metadata": {
+    "executionInfo": {
+     "elapsed": 12,
+     "status": "ok",
+     "timestamp": 1715752687516,
+     "user": {
+      "displayName": "Antje Muntzinger",
+      "userId": "10437300600274960629"
+     },
+     "user_tz": -120
+    },
+    "id": "0bCak-al4Cw3"
+   },
+   "outputs": [],
+   "source": [
+    "###### TODO: YOUR CODE GOES HERE #####\n",
+    "\n"
+   ]
+  },
+  {
+   "cell_type": "code",
+   "execution_count": null,
+   "metadata": {
+    "colab": {
+     "base_uri": "https://localhost:8080/"
+    },
+    "executionInfo": {
+     "elapsed": 13,
+     "status": "ok",
+     "timestamp": 1715752687517,
+     "user": {
+      "displayName": "Antje Muntzinger",
+      "userId": "10437300600274960629"
+     },
+     "user_tz": -120
+    },
+    "id": "QUsaAxMBsLdE",
+    "outputId": "bc774486-3f9d-4fcb-8e6e-f782f6ca4588"
+   },
+   "outputs": [],
+   "source": [
+    "# create the model and print summary using torchinfo\n",
+    "model_fcn = FCN()\n",
+    "summary(model_fcn, input_size=(1, 3, 64, 64), row_settings=[\"var_names\"])"
+   ]
+  },
+  {
+   "cell_type": "markdown",
+   "metadata": {
+    "id": "WRMMBlgZH5Xe"
+   },
+   "source": [
+    "### Training\n",
+    "\n",
+    "When the model architecture is defined, the model has to be trained. We will use Google\n",
+    "Colab in order to accelerate training with GPU support. During training, we will monitor train and\n",
+    "test losses to avoid overfitting. We will also evaluate accuracy improvement during training on a\n",
+    "validation set."
+   ]
+  },
+  {
+   "cell_type": "code",
+   "execution_count": null,
+   "metadata": {
+    "executionInfo": {
+     "elapsed": 11,
+     "status": "ok",
+     "timestamp": 1715752687517,
+     "user": {
+      "displayName": "Antje Muntzinger",
+      "userId": "10437300600274960629"
+     },
+     "user_tz": -120
+    },
+    "id": "lEvr9kDxsLdF"
+   },
+   "outputs": [],
+   "source": [
+    "# initialize parameter (not inside next cell to enable reloading of model)\n",
+    "total_acc = 0\n",
+    "train_losses = []\n",
+    "valid_losses = []\n",
+    "episodes = []"
+   ]
+  },
+  {
+   "cell_type": "code",
+   "execution_count": null,
+   "metadata": {
+    "executionInfo": {
+     "elapsed": 10,
+     "status": "ok",
+     "timestamp": 1715752687517,
+     "user": {
+      "displayName": "Antje Muntzinger",
+      "userId": "10437300600274960629"
+     },
+     "user_tz": -120
+    },
+    "id": "3g1nF_C44b-m"
+   },
+   "outputs": [],
+   "source": [
+    "# train loop\n",
+    "def run_training(model, num_episodes, print_every, trainLoader, filename, total_acc, train_losses, valid_losses, episodes):\n",
+    "\n",
+    "    device = torch.device(\"cuda:0\" if torch.cuda.is_available() else \"cpu\")\n",
+    "    print('device =',device)\n",
+    "    model.to(device)\n",
+    "\n",
+    "    running_loss = 0\n",
+    "    steps = 0\n",
+    "\n",
+    "    for i_episode in range(num_episodes):\n",
+    "        for inputs, labels in trainLoader:\n",
+    "            steps += 1\n",
+    "\n",
+    "            # move input and label tensors to the default device\n",
+    "            inputs = inputs.to(device)\n",
+    "            labels = labels.to(device)\n",
+    "\n",
+    "            # zero gradients (remove gradients from previous training batches, otherwise they get accumulated)\n",
+    "            model.optimizer.zero_grad()\n",
+    "\n",
+    "            # forward pass through network\n",
+    "            logps = model.forward(inputs)\n",
+    "\n",
+    "            # calculate loss\n",
+    "            loss = model.criterion(logps, labels)\n",
+    "\n",
+    "            # backpropagation\n",
+    "            loss.backward()\n",
+    "\n",
+    "            # update weights with an optimizer step\n",
+    "            model.optimizer.step()\n",
+    "\n",
+    "            running_loss += loss.item()\n",
+    "\n",
+    "            if steps % print_every == 0 or i_episode == len(trainLoader)-1:\n",
+    "                valid_loss = 0\n",
+    "                accuracy = 0\n",
+    "                model.eval()\n",
+    "                with torch.no_grad():\n",
+    "                    for inputs, labels in validLoader:\n",
+    "\n",
+    "                        # Move input and label tensors to the default device\n",
+    "                        inputs = inputs.to(device)\n",
+    "                        labels = labels.to(device)\n",
+    "\n",
+    "                        logps = model.forward(inputs)\n",
+    "                        batch_loss = model.criterion(logps, labels)\n",
+    "                        valid_loss += batch_loss.item()\n",
+    "\n",
+    "                        # Calculate accuracy\n",
+    "                        ps = torch.exp(logps) # the model outputs log probabilities, so we need the exponential to negate the log for actual class probabilities\n",
+    "                        top_p, top_class = ps.topk(1, dim=1)\n",
+    "                        equals = top_class == labels.view(*top_class.shape)\n",
+    "                        accuracy += torch.mean(equals.type(torch.FloatTensor)).item()\n",
+    "\n",
+    "                accuracy /= len(validLoader)\n",
+    "                valid_loss /= len(validLoader)\n",
+    "                running_loss /= print_every\n",
+    "                train_losses.append(running_loss)\n",
+    "                valid_losses.append(valid_loss)\n",
+    "                if episodes == [] or episodes[-1] <= i_episode+1:\n",
+    "                    episodes.append(i_episode+1)\n",
+    "                else:\n",
+    "                    episodes.append(episodes[-1]+i_episode+1)\n",
+    "                print(f\"Epoch {i_episode+1}/{num_episodes}.. \"\n",
+    "                    f\"Train loss: {running_loss:.3f}.. \"\n",
+    "                    f\"Valid loss: {valid_loss:.3f}.. \"\n",
+    "                    f\"Valid accuracy: {accuracy:.3f}\")\n",
+    "                running_loss = 0\n",
+    "                model.train()\n",
+    "                if accuracy > total_acc:\n",
+    "                    total_acc = accuracy\n",
+    "                    print(\"Accuracy improved! Saving model...\")\n",
+    "\n",
+    "                    # save the checkpoint\n",
+    "                    model.to('cpu')\n",
+    "                    checkpoint = {'opt_state': model.optimizer.state_dict,\n",
+    "                                'total_acc': total_acc,\n",
+    "                                'train_losses': train_losses,\n",
+    "                                'valid_losses': valid_losses,\n",
+    "                                'episodes': episodes,\n",
+    "                                'state_dict': model.state_dict()}\n",
+    "                    torch.save(checkpoint, modelPath+filename)\n",
+    "                    model.to(device)\n",
+    "                else:\n",
+    "                    print(\"Accuracy not improved. Continuing without saving model...\")\n",
+    "                print(f\"Last accuracy: {accuracy:.3f}\")\n",
+    "                print(f\"Best accuracy: {total_acc:.3f}\\n\")\n",
+    "\n",
+    "    model.to('cpu')"
+   ]
+  },
+  {
+   "cell_type": "code",
+   "execution_count": null,
+   "metadata": {
+    "colab": {
+     "base_uri": "https://localhost:8080/"
+    },
+    "executionInfo": {
+     "elapsed": 834675,
+     "status": "ok",
+     "timestamp": 1715753522182,
+     "user": {
+      "displayName": "Antje Muntzinger",
+      "userId": "10437300600274960629"
+     },
+     "user_tz": -120
+    },
+    "id": "H8QwDA6WsLdF",
+    "outputId": "ef8d20be-0bb7-43ce-880e-2655ef9acfbe"
+   },
+   "outputs": [],
+   "source": [
+    "# training parameters\n",
+    "print_every = 1000 #np.inf\n",
+    "num_episodes = 20\n",
+    "\n",
+    "# run train loop\n",
+    "if not load_model_from_file:\n",
+    "    run_training(model_fcn, num_episodes, print_every, trainLoader, 'fcn_checkpoint.pth', total_acc, train_losses, valid_losses, episodes)"
+   ]
+  },
+  {
+   "cell_type": "code",
+   "execution_count": null,
+   "metadata": {
+    "executionInfo": {
+     "elapsed": 45,
+     "status": "ok",
+     "timestamp": 1715753522183,
+     "user": {
+      "displayName": "Antje Muntzinger",
+      "userId": "10437300600274960629"
+     },
+     "user_tz": -120
+    },
+    "id": "__dwX1ow4ced"
+   },
+   "outputs": [],
+   "source": [
+    "# function that loads a checkpoint and rebuilds the model (optional)\n",
+    "def load_checkpoint(filepath, model_type):\n",
+    "    try:\n",
+    "        checkpoint = torch.load(filepath)\n",
+    "    except:\n",
+    "        checkpoint = torch.load(filepath, map_location=torch.device('cpu')) # catch exception when colab has no GPU available\n",
+    "\n",
+    "    if model_type == 'fcn':\n",
+    "        model = FCN()\n",
+    "    else:\n",
+    "        model = CNN()\n",
+    "\n",
+    "    model.load_state_dict(checkpoint['state_dict'], strict=False)\n",
+    "    total_acc = checkpoint['total_acc']\n",
+    "    train_losses = checkpoint['train_losses']\n",
+    "    valid_losses = checkpoint['valid_losses']\n",
+    "    episodes = checkpoint['episodes']\n",
+    "\n",
+    "    return model, total_acc, train_losses, valid_losses, episodes"
+   ]
+  },
+  {
+   "cell_type": "code",
+   "execution_count": null,
+   "metadata": {
+    "executionInfo": {
+     "elapsed": 250,
+     "status": "ok",
+     "timestamp": 1715755598546,
+     "user": {
+      "displayName": "Antje Muntzinger",
+      "userId": "10437300600274960629"
+     },
+     "user_tz": -120
+    },
+    "id": "TGyTEavhFewM"
+   },
+   "outputs": [],
+   "source": [
+    "# load the checkpoint (optional for re-starting where you left)\n",
+    "# model_fcn, total_acc, train_losses, valid_losses, episodes = load_checkpoint(modelPath+'fcn_checkpoint.pth', 'fcn')"
+   ]
+  },
+  {
+   "cell_type": "code",
+   "execution_count": null,
+   "metadata": {
+    "executionInfo": {
+     "elapsed": 31,
+     "status": "ok",
+     "timestamp": 1715753522184,
+     "user": {
+      "displayName": "Antje Muntzinger",
+      "userId": "10437300600274960629"
+     },
+     "user_tz": -120
+    },
+    "id": "WDiCnftz0amD"
+   },
+   "outputs": [],
+   "source": [
+    "# change learnrate for next epochs (activate in case you reloaded the model and want to re-run the training loop above)\n",
+    "# model_fcn.optimizer = optim.Adam(model_fcn.parameters(), lr=0.00001)"
+   ]
+  },
+  {
+   "cell_type": "code",
+   "execution_count": null,
+   "metadata": {
+    "colab": {
+     "base_uri": "https://localhost:8080/",
+     "height": 467
+    },
+    "executionInfo": {
+     "elapsed": 707,
+     "status": "ok",
+     "timestamp": 1715755603451,
+     "user": {
+      "displayName": "Antje Muntzinger",
+      "userId": "10437300600274960629"
+     },
+     "user_tz": -120
+    },
+    "id": "VOaMCXhoq-ED",
+    "outputId": "3fcc2abe-2346-4c7f-cad6-1bc6c0101eeb"
+   },
+   "outputs": [],
+   "source": [
+    "# plot losses\n",
+    "plt.plot(episodes, train_losses, 'r', label='Training Loss')\n",
+    "plt.plot(episodes, valid_losses, 'b', label='Validation Loss')\n",
+    "plt.xlabel('Episode')\n",
+    "plt.ylabel('Loss')\n",
+    "plt.legend()\n",
+    "plt.show()"
+   ]
+  },
+  {
+   "cell_type": "markdown",
+   "metadata": {
+    "id": "39H1Q99SIGPM"
+   },
+   "source": [
+    "### Testing and Evaluation\n",
+    "\n",
+    "Finally, we test the performance of the trained classifier on the test set."
+   ]
+  },
+  {
+   "cell_type": "code",
+   "execution_count": null,
+   "metadata": {
+    "colab": {
+     "base_uri": "https://localhost:8080/",
+     "height": 1000
+    },
+    "executionInfo": {
+     "elapsed": 1830,
+     "status": "ok",
+     "timestamp": 1715753524616,
+     "user": {
+      "displayName": "Antje Muntzinger",
+      "userId": "10437300600274960629"
+     },
+     "user_tz": -120
+    },
+    "id": "_7p4BA6nF7wj",
+    "outputId": "76898669-29f9-47d5-8e55-f2010af90efd"
+   },
+   "outputs": [],
+   "source": [
+    "# plot 10 random images with predictions and labels\n",
+    "for i in range(10):\n",
+    "    dataiter = iter(testLoader)\n",
+    "    image, label = next(dataiter)\n",
+    "\n",
+    "    outputs = model_fcn.forward(image)\n",
+    "    max_pred, class_pred = torch.max(outputs, 1)\n",
+    "    prob = torch.exp(max_pred) # again, use exp on log probabilities for real class probabilities\n",
+    "    print(\"Predicted class: \", classes[class_pred.item()], \"(with probability %1.1f)\" % prob.item())\n",
+    "    print(\"True class: \", classes[label.item()])\n",
+    "\n",
+    "    show_image(image[0])"
+   ]
+  },
+  {
+   "cell_type": "code",
+   "execution_count": null,
+   "metadata": {
+    "colab": {
+     "base_uri": "https://localhost:8080/"
+    },
+    "executionInfo": {
+     "elapsed": 7204,
+     "status": "ok",
+     "timestamp": 1715753531802,
+     "user": {
+      "displayName": "Antje Muntzinger",
+      "userId": "10437300600274960629"
+     },
+     "user_tz": -120
+    },
+    "id": "2yMqF4jsGFLL",
+    "outputId": "cd3abdf0-8a3d-443e-c559-1c1395bb655b"
+   },
+   "outputs": [],
+   "source": [
+    "# final evaluation on test data\n",
+    "def final_eval(model, testLoader):\n",
+    "    accuracy = 0\n",
+    "    model.eval()\n",
+    "    with torch.no_grad():\n",
+    "        for inputs, labels in testLoader:\n",
+    "\n",
+    "            logps = model.forward(inputs)\n",
+    "\n",
+    "            # calculate accuracy\n",
+    "            ps = torch.exp(logps)\n",
+    "            top_p, top_class = ps.topk(1, dim=1)\n",
+    "            equals = top_class == labels.view(*top_class.shape)\n",
+    "            accuracy += torch.mean(equals.type(torch.FloatTensor)).item()\n",
+    "\n",
+    "    accuracy /= len(testLoader)\n",
+    "    print(f\"Final accuracy on test dataset: {accuracy:.3f}\")\n",
+    "\n",
+    "final_eval(model_fcn, testLoader)"
+   ]
+  },
+  {
+   "cell_type": "markdown",
+   "metadata": {
+    "id": "s92qZ0FEsLdK"
+   },
+   "source": [
+    "**TODO**: 3b) How do you interpret the results? Can you think of potential improvements?  **(2 points)**\n",
+    "\n",
+    "**ANSWER:** \n",
+    "\n"
+   ]
+  },
+  {
+   "cell_type": "markdown",
+   "metadata": {
+    "id": "oylz_sJEsLdK"
+   },
+   "source": [
+    "----\n",
+    "\n",
+    "## 4. Implementation of a Convolutional Neural Network (CNN)\n",
+    "\n",
+    "\n",
+    "In order to solve this classification problem, in practice we rather use a Convolutional Neural Network (CNN) than an FCN, because of translation and rotation invariance and computational efficiency. We will therefore implement a CNN and compare the results to the FCN."
+   ]
+  },
+  {
+   "cell_type": "markdown",
+   "metadata": {
+    "id": "e5bsalC_sLdK"
+   },
+   "source": [
+    "### Model Architecture\n",
+    "\n",
+    "**TODO**: 4) Design a CNN model architecture as seen in the tutorial https://pytorch.org/tutorials/beginner/blitz/cifar10_tutorial.html, i.e., define a subclass of `nn.Module` and name it `CNN`. Then define the `__init__()` and `forward()` functions. The network should have the following shape (from input to output):\n",
+    "- a convolutional layer `torch.nn.Conv2d` with 3x3 kernels, input depth 3 (for the 3 color channels) and output depth 16, using `padding=1`, i.e. same padding to get the same output size as input size\n",
+    "- a MaxPooling `torch.nn.MaxPool2d` with 2x2 kernel\n",
+    "- a ReLU activation `torch.nn.functional.relu`\n",
+    "- a dropout layer `torch.nn.Dropout`\n",
+    "- a convolutional layer `torch.nn.Conv2d` with 3x3 kernels, input depth 16 and output depth 32, using same padding again\n",
+    "- a MaxPooling `torch.nn.MaxPool2d` with 2x2 kernel\n",
+    "- a ReLU activation `torch.nn.functional.relu`\n",
+    "- a convolutional layer `torch.nn.Conv2d` with 3x3 kernels, input depth 32 and output depth 64, using same padding again\n",
+    "- a MaxPooling `torch.nn.MaxPool2d` with 2x2 kernel\n",
+    "- a ReLU activation `torch.nn.functional.relu`\n",
+    "- a dropout layer `torch.nn.Dropout`\n",
+    "- a flattening layer\n",
+    "- a linear layer `torch.nn.Linear` with input size 4096 and output size `numClasses`\n",
+    "- a logsoftmax function `torch.nn.LogSoftmax` (without ReLU activation).\n",
+    "\n",
+    "You should also define an optimizer with a learning rate (e.g. 0.0001) and a loss function, the negative log likelihood loss `torch.nn.functional.NLLLoss`.\n",
+    "\n",
+    "The `forward()` function should do a forward pass of an image through the network (note that the image is **not** flattened first when using a CNN!).\n",
+    "**(10 points)**"
+   ]
+  },
+  {
+   "cell_type": "code",
+   "execution_count": null,
+   "metadata": {
+    "executionInfo": {
+     "elapsed": 34,
+     "status": "ok",
+     "timestamp": 1715753531804,
+     "user": {
+      "displayName": "Antje Muntzinger",
+      "userId": "10437300600274960629"
+     },
+     "user_tz": -120
+    },
+    "id": "k_4_7f9RsLdL"
+   },
+   "outputs": [],
+   "source": [
+    "###### TODO: YOUR CODE GOES HERE #####\n",
+    "\n",
+    "\n"
+   ]
+  },
+  {
+   "cell_type": "markdown",
+   "metadata": {
+    "id": "AfXfo4GSsLdL"
+   },
+   "source": [
+    "**TODO**: 4b) Why is the input size to the linear layer 4096? **(2 points)**\n",
+    "\n",
+    "**Hint**: You can find some infos regarding the output shape of a convolution layer here: https://pytorch.org/docs/stable/generated/torch.nn.Conv2d.html.\n",
+    "\n",
+    "**ANSWER:**\n",
+    "\n",
+    "\n"
+   ]
+  },
+  {
+   "cell_type": "markdown",
+   "metadata": {
+    "id": "aKoMw_VQsLdM"
+   },
+   "source": [
+    "### Training\n",
+    "\n"
+   ]
+  },
+  {
+   "cell_type": "code",
+   "execution_count": null,
+   "metadata": {
+    "colab": {
+     "base_uri": "https://localhost:8080/"
+    },
+    "executionInfo": {
+     "elapsed": 30,
+     "status": "ok",
+     "timestamp": 1715753531805,
+     "user": {
+      "displayName": "Antje Muntzinger",
+      "userId": "10437300600274960629"
+     },
+     "user_tz": -120
+    },
+    "id": "d8544mhusLdN",
+    "outputId": "89f843b1-a346-4a53-cd04-ce93aa56cd3a"
+   },
+   "outputs": [],
+   "source": [
+    "# create the model and print summary using torchinfo\n",
+    "model_cnn = CNN()\n",
+    "summary(model_cnn, input_size=(1, 3, 64, 64), row_settings=[\"var_names\"])"
+   ]
+  },
+  {
+   "cell_type": "code",
+   "execution_count": null,
+   "metadata": {
+    "executionInfo": {
+     "elapsed": 20,
+     "status": "ok",
+     "timestamp": 1715753531806,
+     "user": {
+      "displayName": "Antje Muntzinger",
+      "userId": "10437300600274960629"
+     },
+     "user_tz": -120
+    },
+    "id": "wSVZx5i4sLdN"
+   },
+   "outputs": [],
+   "source": [
+    "# initialize parameter (not inside next cell to enable reloading of model)\n",
+    "total_acc = 0\n",
+    "train_losses = []\n",
+    "valid_losses = []\n",
+    "episodes = []"
+   ]
+  },
+  {
+   "cell_type": "code",
+   "execution_count": null,
+   "metadata": {
+    "colab": {
+     "base_uri": "https://localhost:8080/"
+    },
+    "executionInfo": {
+     "elapsed": 786860,
+     "status": "ok",
+     "timestamp": 1715756462688,
+     "user": {
+      "displayName": "Antje Muntzinger",
+      "userId": "10437300600274960629"
+     },
+     "user_tz": -120
+    },
+    "id": "0EU1ULiMsLdO",
+    "outputId": "b8357aaf-7b23-4353-bc42-f5cec441d9ca"
+   },
+   "outputs": [],
+   "source": [
+    "# training parameters\n",
+    "print_every = 1000 #np.inf\n",
+    "num_episodes = 20\n",
+    "\n",
+    "# training\n",
+    "if not load_model_from_file:\n",
+    "    run_training(model_cnn, num_episodes, print_every, trainLoader, 'cnn_checkpoint.pth', total_acc, train_losses, valid_losses, episodes)"
+   ]
+  },
+  {
+   "cell_type": "code",
+   "execution_count": null,
+   "metadata": {
+    "colab": {
+     "base_uri": "https://localhost:8080/"
+    },
+    "executionInfo": {
+     "elapsed": 249,
+     "status": "ok",
+     "timestamp": 1715755628806,
+     "user": {
+      "displayName": "Antje Muntzinger",
+      "userId": "10437300600274960629"
+     },
+     "user_tz": -120
+    },
+    "id": "ZomLPQIBsLdP",
+    "outputId": "8a1eb7aa-0d93-4d80-b373-5132671403b1"
+   },
+   "outputs": [],
+   "source": [
+    "# load the checkpoint (optional for re-training where you left)\n",
+    "# model_cnn, total_acc, train_losses, valid_losses, episodes = load_checkpoint(modelPath+'cnn_checkpoint.pth', 'cnn')"
+   ]
+  },
+  {
+   "cell_type": "code",
+   "execution_count": null,
+   "metadata": {
+    "executionInfo": {
+     "elapsed": 241,
+     "status": "ok",
+     "timestamp": 1715755631325,
+     "user": {
+      "displayName": "Antje Muntzinger",
+      "userId": "10437300600274960629"
+     },
+     "user_tz": -120
+    },
+    "id": "3LjiQOfNu5p6"
+   },
+   "outputs": [],
+   "source": [
+    "# change learnrate for next epochs (activate in case you reloaded the model and want to re-run the training loop above)\n",
+    "# model_cnn.optimizer = optim.Adam(model_cnn.parameters(), lr=0.00001)"
+   ]
+  },
+  {
+   "cell_type": "code",
+   "execution_count": null,
+   "metadata": {
+    "colab": {
+     "base_uri": "https://localhost:8080/",
+     "height": 467
+    },
+    "executionInfo": {
+     "elapsed": 553,
+     "status": "ok",
+     "timestamp": 1715756641302,
+     "user": {
+      "displayName": "Antje Muntzinger",
+      "userId": "10437300600274960629"
+     },
+     "user_tz": -120
+    },
+    "id": "u5ekmkF2sLdP",
+    "outputId": "46d060d4-d457-45b9-8a58-34a8f0527cc4"
+   },
+   "outputs": [],
+   "source": [
+    "# plot losses\n",
+    "plt.plot(train_losses, 'r', label='Training Loss')\n",
+    "plt.plot(valid_losses, 'b', label='Validation Loss')\n",
+    "plt.xlabel('Episode')\n",
+    "plt.ylabel('Loss')\n",
+    "plt.legend()"
+   ]
+  },
+  {
+   "cell_type": "markdown",
+   "metadata": {
+    "id": "yxIgzKFasLdQ"
+   },
+   "source": [
+    "### Testing and Evaluation\n",
+    "\n",
+    "Finally, we test the performance of the trained classifier on the test set."
+   ]
+  },
+  {
+   "cell_type": "code",
+   "execution_count": null,
+   "metadata": {
+    "colab": {
+     "base_uri": "https://localhost:8080/",
+     "height": 1000
+    },
+    "executionInfo": {
+     "elapsed": 2515,
+     "status": "ok",
+     "timestamp": 1715756656026,
+     "user": {
+      "displayName": "Antje Muntzinger",
+      "userId": "10437300600274960629"
+     },
+     "user_tz": -120
+    },
+    "id": "Yv1905lmsLdQ",
+    "outputId": "1d7e5202-0759-436d-927a-82c27d680c5b"
+   },
+   "outputs": [],
+   "source": [
+    "# plot 10 random images with predictions and labels\n",
+    "for i in range(10):\n",
+    "    dataiter = iter(testLoader)\n",
+    "    image, label = next(dataiter)\n",
+    "\n",
+    "    outputs = model_cnn.forward(image)\n",
+    "    max_pred, class_pred = torch.max(outputs, 1)\n",
+    "    prob = torch.exp(max_pred)\n",
+    "    print(\"Predicted class: \", classes[class_pred.item()], \"(with probability %1.1f)\" % prob.item())\n",
+    "    print(\"True class: \", classes[label.item()])\n",
+    "\n",
+    "    show_image(image[0])"
+   ]
+  },
+  {
+   "cell_type": "code",
+   "execution_count": null,
+   "metadata": {
+    "colab": {
+     "base_uri": "https://localhost:8080/"
+    },
+    "executionInfo": {
+     "elapsed": 9054,
+     "status": "ok",
+     "timestamp": 1715756666990,
+     "user": {
+      "displayName": "Antje Muntzinger",
+      "userId": "10437300600274960629"
+     },
+     "user_tz": -120
+    },
+    "id": "XzS1V699sLdQ",
+    "outputId": "b3156f7c-3103-4c00-efff-0d7dbfdc9e76"
+   },
+   "outputs": [],
+   "source": [
+    "# final evaluation on testset\n",
+    "final_eval(model_cnn, testLoader)"
+   ]
+  },
+  {
+   "cell_type": "markdown",
+   "metadata": {
+    "id": "El5DkLPssLdR"
+   },
+   "source": [
+    "That's it! We have implemented and trained a fully connected neural network and a convolutional neural network for image classification of traffic signs in PyTorch :-)"
+   ]
+  },
+  {
+   "cell_type": "markdown",
+   "metadata": {
+    "id": "PRno6IYAsLdR"
+   },
+   "source": [
+    "## 5. Traffic Sign Recognition Challenge\n",
+    "\n",
+    "**TODO**: 5) Tune your CNN above to achieve the best possible accuracy on the test set! Write a short comment below what you tried and whether it worked or not. The group with the best final accuracy on the test set will be awarded **+10 extra points**! **(6 points)**\n",
+    "\n",
+    "**Hint:** Here are some suggestions how to improve your results (but there are many other options):\n",
+    "- Add regularization besides dropout, e.g. batch normalization layers\n",
+    "- Try a different optimizer\n",
+    "- Try a different architecture, e.g. more hidden layers or more nodes per layer (note that you will have to adapt the input size to the linear layer accordingly!)\n",
+    "- Try a different activation function, e.g. leaky ReLU\n",
+    "- Try more epochs / longer training times\n",
+    "- Change other hyperparameters, e.g., further decrease the learning rate after some epochs\n",
+    "- Add more data augmentation, see [this overview](https://pytorch.org/vision/stable/transforms.html)\n",
+    "- Try transfer learning, see [this tutorial](https://pytorch.org/tutorials/beginner/transfer_learning_tutorial.html)\n",
+    "- ...\n",
+    "\n",
+    "**Note**: To really improve performance, you should train on GPUs, e.g. in Google Colab. But in case you have no access to GPUs (for example, sometimes GPUs in Colab are not available), you can still implement some of the suggestions above, it will help you practice, even though you might not see a massive improvement.\n",
+    "\n",
+    "**ANSWER:**\n"
+   ]
+  },
+  {
+   "cell_type": "code",
+   "execution_count": null,
+   "metadata": {
+    "colab": {
+     "base_uri": "https://localhost:8080/"
+    },
+    "executionInfo": {
+     "elapsed": 926,
+     "status": "ok",
+     "timestamp": 1715754340396,
+     "user": {
+      "displayName": "Antje Muntzinger",
+      "userId": "10437300600274960629"
+     },
+     "user_tz": -120
+    },
+    "id": "A5WwW-HNLSKu",
+    "outputId": "2eff1d15-30f8-4ff2-f679-0e7308bebdfb"
+   },
+   "outputs": [],
+   "source": [
+    "# save as pdf (potentially adapt filename)\n",
+    "!jupyter nbconvert --to webpdf --allow-chromium-download Project_TrafficSignClassifier_starter.ipynb"
+   ]
+  }
+ ],
+ "metadata": {
+  "accelerator": "GPU",
+  "colab": {
+   "gpuType": "T4",
+   "provenance": []
+  },
+  "kernelspec": {
+   "display_name": ".venv",
+   "language": "python",
+   "name": "python3"
+  },
+  "language_info": {
+   "codemirror_mode": {
+    "name": "ipython",
+    "version": 3
+   },
+   "file_extension": ".py",
+   "mimetype": "text/x-python",
+   "name": "python",
+   "nbconvert_exporter": "python",
+   "pygments_lexer": "ipython3",
+   "version": "3.12.5"
+  }
+ },
+ "nbformat": 4,
+ "nbformat_minor": 0
+}
